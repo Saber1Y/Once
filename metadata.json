@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4P1VBGK8Z6E8DX33FGNPY7F",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "web/src/components/DecisionCard.tsx",
+    "web/src/components/EventLog.tsx",
+    "web/src/components/Queue.tsx",
+    "web/src/components/SidePanels.tsx",
+    "web/src/components/TicketDetail.tsx",
+    "web/src/components/ui.tsx",
+    "web/src/index.css"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 358,
+    "cache_creation_tokens": 334110,
+    "cache_read_tokens": 42858215,
+    "output_tokens": 194376,
+    "api_call_count": 179
+  }
+}
