@@ -2,23 +2,50 @@ import { motion } from "motion/react";
 import { Check, CheckCircle, CircleNotch, HandPalm, Minus, Plus, ShieldWarning, X } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { Decision, Rule } from "../types";
+import type { Condition, Decision } from "../types";
 import { Button } from "./ui";
-import { cx, money } from "../lib";
+import { cx } from "../lib";
 
 const numberInput =
   "w-14 rounded-md border border-line bg-surface px-1.5 py-0.5 text-center font-mono text-[13px] text-ink-strong focus:border-ink-strong focus:outline-none";
 
+function ConditionInput({
+  condition,
+  value,
+  onChange,
+}: {
+  condition: Condition;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  const [before, after] = condition.label.split("{value}");
+  return (
+    <>
+      {before}
+      <input
+        type="number"
+        step={Number.isInteger(condition.value) ? 1 : 0.5}
+        min={0}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        aria-label={condition.unit ?? condition.field}
+        className={numberInput}
+      />
+      {after}
+    </>
+  );
+}
+
 export function DecisionCard({ decision, onError }: { decision: Decision; onError: (m: string) => void }) {
-  const [outcome, setOutcome] = useState<Rule["outcome"] | null>(null);
+  const [outcome, setOutcome] = useState<string | null>(null);
   const [scope, setScope] = useState<"always" | "once">("always");
-  const [tenure, setTenure] = useState(decision.suggested_scope.min_tenure_years);
-  const [days, setDays] = useState(decision.suggested_scope.max_days_over);
+  const [values, setValues] = useState<Record<string, number>>(() =>
+    Object.fromEntries(decision.conditions.map((c) => [c.field, c.value])),
+  );
   const [showEvidence, setShowEvidence] = useState(false);
   const [sending, setSending] = useState(false);
   const busy = decision.status === "checking" || decision.status === "answering" || sending;
   const lastAttempt = decision.attempts[decision.attempts.length - 1];
-  const f = decision.facts;
 
   useEffect(() => {
     if (decision.status !== "open" && decision.status !== "held") setSending(false);
@@ -28,7 +55,7 @@ export function DecisionCard({ decision, onError }: { decision: Decision; onErro
     if (!outcome) return;
     setSending(true);
     try {
-      await api.answer(decision.id, { outcome, scope, min_tenure_years: tenure, max_days_over: days });
+      await api.answer(decision.id, { outcome, scope, values });
     } catch (e) {
       setSending(false);
       onError(e instanceof Error ? e.message : String(e));
@@ -66,12 +93,8 @@ export function DecisionCard({ decision, onError }: { decision: Decision; onErro
       <div className="p-4">
         <p className="font-serif text-[21px] leading-[1.2] tracking-[-0.01em] text-ink-strong">{decision.question}</p>
 
-        <dl className="mt-4 grid grid-cols-3 divide-x divide-line rounded-lg border border-line">
-          {[
-            ["Customer for", `${f.tenure_years} yrs`],
-            ["Past window", `${f.days_over} day${f.days_over === 1 ? "" : "s"}`],
-            ["Order", money(f.amount)],
-          ].map(([k, v]) => (
+        <dl className="mt-4 grid auto-cols-fr grid-flow-col divide-x divide-line rounded-lg border border-line">
+          {decision.highlights.map(([k, v]) => (
             <div key={k} className="px-3 py-2.5">
               <dt className="text-[11px] text-muted">{k}</dt>
               <dd className="mt-0.5 font-mono text-[14px] text-ink-strong">{v}</dd>
@@ -104,7 +127,7 @@ export function DecisionCard({ decision, onError }: { decision: Decision; onErro
           <div className="mt-4 rounded-lg bg-red-bg p-3.5">
             <p className="inline-flex items-center gap-1.5 text-[13.5px] font-medium text-red-fg">
               <ShieldWarning weight="bold" className="size-4" /> Rule held. It would break{" "}
-              {lastAttempt.drift.total - lastAttempt.drift.passed} of ACME's distinctive cases.
+              {lastAttempt.drift.total - lastAttempt.drift.passed} of the company's distinctive cases.
             </p>
             <ul className="mt-2 space-y-1.5">
               {lastAttempt.drift.results
@@ -175,29 +198,21 @@ export function DecisionCard({ decision, onError }: { decision: Decision; onErro
               ))}
             </div>
 
-            {scope === "always" && (
-              <p className="mt-3 text-[13px] leading-[2] text-muted">
-                Apply to customers of{" "}
-                <input
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  value={tenure}
-                  onChange={(e) => setTenure(Number(e.target.value))}
-                  aria-label="Minimum years as a customer"
-                  className={numberInput}
-                />{" "}
-                or more years, up to{" "}
-                <input
-                  type="number"
-                  min={1}
-                  value={days}
-                  onChange={(e) => setDays(Number(e.target.value))}
-                  aria-label="Maximum days past the window"
-                  className={numberInput}
-                />{" "}
-                days past the window. Once replays ACME's distinctive cases before saving it.
-              </p>
+            {scope === "always" && decision.conditions.length > 0 && (
+              <div className="mt-3 text-[13px] leading-[2.1] text-muted">
+                Apply when{" "}
+                {decision.conditions.map((c, i) => (
+                  <span key={c.field}>
+                    <ConditionInput
+                      condition={c}
+                      value={values[c.field]}
+                      onChange={(v) => setValues((prev) => ({ ...prev, [c.field]: v }))}
+                    />
+                    {i < decision.conditions.length - 1 ? " and " : ". "}
+                  </span>
+                ))}
+                Once replays the company's distinctive cases before saving it.
+              </div>
             )}
 
             <Button variant="primary" className="mt-4 w-full" disabled={!outcome} onClick={submit}>

@@ -5,6 +5,7 @@ import { api, useDesk } from "./api";
 import { EventLog } from "./components/EventLog";
 import { Queue } from "./components/Queue";
 import { Decisions, DriftBoard, Memory } from "./components/SidePanels";
+import { IntegrationView } from "./components/IntegrationView";
 import { TicketDetail } from "./components/TicketDetail";
 import { Button, Tag } from "./components/ui";
 import { cx } from "./lib";
@@ -28,6 +29,7 @@ export default function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [composer, setComposer] = useState("");
+  const [view, setView] = useState<"desk" | "integration">("desk");
 
   const tickets = useMemo(() => state?.tickets ?? [], [state]);
   const active = tickets.find((t) => t.status === "running");
@@ -75,9 +77,28 @@ export default function App() {
 
       <header className="sticky top-0 z-50 border-b border-line bg-canvas/85 backdrop-blur-md">
         <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-3 px-4 py-3 md:px-8">
-          <div className="flex items-baseline gap-3">
+          <div className="flex items-center gap-5">
             <span className="font-serif text-[26px] leading-none tracking-[-0.02em] text-ink-strong">Once</span>
-            <span className="hidden text-[13px] text-muted sm:inline">ACME support desk</span>
+            <nav className="flex items-center gap-1 text-[13px]" aria-label="Views">
+              {(
+                [
+                  ["desk", `${state?.company ?? ""} desk`],
+                  ["integration", "Integration"],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setView(key)}
+                  aria-current={view === key ? "page" : undefined}
+                  className={cx(
+                    "rounded-md px-2.5 py-1 font-medium transition-colors",
+                    view === key ? "bg-gray-bg text-ink-strong" : "text-muted hover:text-ink-strong",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
           </div>
           <div className="flex items-center gap-2">
             <span
@@ -105,12 +126,28 @@ export default function App() {
           className="flex flex-col gap-8 py-12 md:py-16 xl:flex-row xl:items-end xl:justify-between"
         >
           <div className="max-w-3xl">
-            <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted">neatHack 2026 · live desk</p>
-            <h1 className="mt-3 font-serif text-[44px] leading-[1.05] tracking-[-0.03em] text-ink-strong md:text-[64px]">
-              Fixes what's mechanical.
-              <br />
-              <em className="text-muted">Asks what's a choice. Only needs you once.</em>
-            </h1>
+            <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted">
+              {view === "desk" ? `Guarding ${state?.company ?? ""}'s support agent` : `${state?.company ?? ""} is connected`}
+            </p>
+            {view === "desk" ? (
+              <h1 className="mt-3 font-serif text-[44px] leading-[1.05] tracking-[-0.03em] text-ink-strong md:text-[64px]">
+                Fixes what's mechanical.
+                <br />
+                <em className="text-muted">Asks what's a choice. Only needs you once.</em>
+              </h1>
+            ) : (
+              <>
+                <h1 className="mt-3 font-serif text-[44px] leading-[1.05] tracking-[-0.03em] text-ink-strong md:text-[64px]">
+                  {state?.company}'s agent,
+                  <br />
+                  <em className="text-muted">now behind Once.</em>
+                </h1>
+                <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-muted">
+                  Five steps in one file: point Once at the help center, hand it the agent, register each write with a
+                  read-back, add business checks, and list the trade-offs worth protecting.
+                </p>
+              </>
+            )}
           </div>
           <div className="grid grid-cols-3 gap-x-4 gap-y-5 sm:flex sm:shrink-0 sm:gap-0 sm:divide-x sm:divide-line">
             <Metric label="Resolved" value={stats?.resolved ?? 0} />
@@ -148,6 +185,10 @@ export default function App() {
           </div>
         )}
 
+        {view === "integration" ? (
+          <IntegrationView />
+        ) : (
+        <>
         <motion.div
           {...reveal}
           transition={{ duration: 0.6, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
@@ -171,6 +212,8 @@ export default function App() {
         <motion.div {...reveal} transition={{ duration: 0.6, delay: 0.16, ease: [0.16, 1, 0.3, 1] }} className="mt-4">
           <EventLog events={events} />
         </motion.div>
+        </>
+        )}
       </div>
 
       <form

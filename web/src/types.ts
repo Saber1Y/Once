@@ -2,7 +2,7 @@ export type Category = "context" | "decision" | "execution" | "trajectory";
 
 export interface Step {
   id: string;
-  kind: "tool" | "commit" | "verify" | "llm";
+  kind: "tool" | "source" | "commit" | "verify" | "llm";
   name: string;
   args: Record<string, unknown>;
   result: unknown;
@@ -87,12 +87,21 @@ export interface Drift {
   rule?: string | null;
 }
 
+export interface Condition {
+  field: string;
+  op: ">=" | "<=" | ">" | "<" | "==";
+  value: number;
+  label: string;
+  unit?: string;
+}
+
 export interface Rule {
   id: string;
   version: number;
-  min_tenure_years: number;
-  max_days_over: number;
-  outcome: "refund" | "store_credit" | "decline";
+  domain: string;
+  conditions: Condition[];
+  outcome: string;
+  outcome_label: string;
   question: string;
   source_ticket: string;
   decided_by: string;
@@ -106,25 +115,36 @@ export interface Decision {
   id: string;
   ticket_id: string;
   status: "open" | "checking" | "answering" | "answered" | "held";
+  domain: string;
   question: string;
   why: string;
-  facts: {
-    customer: string;
-    plan: string;
-    tenure_years: number;
-    product: string;
-    amount: number;
-    days_since_purchase: number;
-    window_days: number;
-    days_over: number;
-  };
+  facts: Record<string, number>;
+  highlights: [string, string][];
   evidence: Step[];
-  options: { value: Rule["outcome"]; label: string }[];
-  suggested_scope: { min_tenure_years: number; max_days_over: number };
+  options: { value: string; label: string }[];
+  conditions: Condition[];
+  decided_by: string;
   trace_url: string | null;
   attempts: { rule: Rule; drift: Drift; at: string }[];
   scope?: "once" | "always";
   rule?: Rule;
+}
+
+export interface Integration {
+  company: string;
+  module: string;
+  config: Record<string, unknown> & {
+    about?: string;
+    help_center?: string;
+    systems?: { name: string; role: string }[];
+    choice_boundary?: Record<string, Record<string, number>>;
+    decisions?: { decided_by?: string; channel?: string };
+  };
+  files: Record<string, string>;
+  actions: { name: string; verify: boolean; description: string }[];
+  checks: { name: string; description: string }[];
+  cases: { id: string; title: string; why: string }[];
+  sources: boolean;
 }
 
 export interface Stats {
@@ -138,6 +158,7 @@ export interface Stats {
 }
 
 export interface DeskState {
+  company: string;
   tickets: Ticket[];
   decisions: Decision[];
   policies: Rule[];

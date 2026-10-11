@@ -24,7 +24,13 @@ function short(value: unknown, max = 70): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
-const KIND_LABEL: Record<Step["kind"], string> = { tool: "tool", commit: "write", verify: "read-back", llm: "model" };
+const KIND_LABEL: Record<Step["kind"], string> = {
+  tool: "tool",
+  source: "source",
+  commit: "write",
+  verify: "read-back",
+  llm: "model",
+};
 
 function StepRow({ step }: { step: Step }) {
   const [open, setOpen] = useState(false);

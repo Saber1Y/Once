@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DeskEvent, DeskState } from "./types";
+import type { DeskEvent, DeskState, Integration } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -26,7 +26,8 @@ export const api = {
   runTicket: (id: string) => request(`/api/tickets/${id}/run`, { method: "POST" }),
   addTicket: (sender: string, subject: string, body: string) =>
     request<{ id: string }>("/api/tickets", { method: "POST", body: JSON.stringify({ sender, subject, body }) }),
-  answer: (id: string, body: { outcome: string; scope: string; min_tenure_years: number; max_days_over: number }) =>
+  integration: () => request<Integration>("/api/integration"),
+  answer: (id: string, body: { outcome: string; scope: string; values: Record<string, number> }) =>
     request(`/api/decisions/${id}`, { method: "POST", body: JSON.stringify(body) }),
   drift: () => request("/api/drift", { method: "POST" }),
   reset: () => request("/api/reset", { method: "POST" }),
