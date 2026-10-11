@@ -1,28 +1,24 @@
-"""The support desk: queue, worker thread, decisions and policy memory.
+"""The desk: one connected company, its ticket queue, decisions and policy memory.
 
 All loop work runs on one worker thread so tickets resolve in order and the
-world stays consistent. Drift checks fan out to their own isolated worlds.
+company's systems stay consistent. Drift checks fan out to fresh copies.
 """
 
 from __future__ import annotations
 
 import json
-import math
 import queue
 import threading
 import uuid
 from datetime import UTC, datetime
 
+from once import integrations
 from once.config import DATA_DIR, RUNS_DIR
 from once.drift import run_drift
 from once.events import EventBus
 from once.loop import Loop, TicketRun
-from once.policy import PolicyMemory, Rule
+from once.memory import PolicyMemory
 from once.tracing import flush, init_tracing, tracing_status
-from once.world.kb import KnowledgeBase, SearchIndex
-from once.world.store import World
-
-TICKETS_FILE = DATA_DIR / "tickets.json"
 
 
 def _now() -> str:
@@ -30,23 +26,25 @@ def _now() -> str:
 
 
 class Desk:
-    def __init__(self) -> None:
+    def __init__(self, spec: str | None = None) -> None:
         init_tracing()
+        self.integration = integrations.load(spec)
+        self.files = integrations.source_files(self.integration)
         self.bus = EventBus()
-        self.kb = KnowledgeBase()
-        self.memory = PolicyMemory()
+        company = self.integration.CONFIG["company"]
+        self.memory = PolicyMemory(DATA_DIR / "tenants" / company.lower() / "policies.json")
         self.jobs: queue.Queue = queue.Queue()
         self.lock = threading.RLock()
+        self._busy = False
         self._reset_state()
         threading.Thread(target=self._worker, name="once-worker", daemon=True).start()
 
     # -- state ---------------------------------------------------------------
 
     def _reset_state(self) -> None:
-        self.world = World.seeded()
-        self.index = SearchIndex(self.kb)
+        self.guard = self.integration.create_guard(self.memory)
         self.tickets: dict[str, dict] = {}
-        for t in json.loads(TICKETS_FILE.read_text())["queue"]:
+        for t in self.integration.demo_tickets():
             self.tickets[t["id"]] = {"ticket": t, "status": "queued", "runs": [], "source": "seed"}
         self.decisions: dict[str, dict] = {}
         self.drift: dict | None = None
@@ -60,16 +58,26 @@ class Desk:
 
     def snapshot(self) -> dict:
         with self.lock:
+            index = getattr(self.guard.env, "index", None)
             return {
+                "company": self.guard.company,
                 "tickets": [self._ticket_view(tid) for tid in self.tickets],
                 "decisions": list(self.decisions.values()),
-                "policies": [r.__dict__ | {"describe": r.describe()} for r in self.memory.rules],
-                "index": list(self.index.article_ids),
+                "policies": [r.__dict__ | {"describe": r.describe} for r in self.memory.rules],
+                "index": list(index.article_ids) if index else [],
                 "drift": self.drift,
                 "stats": self.stats(),
                 "tracing": tracing_status(),
                 "busy": not self.jobs.empty() or self._busy,
             }
+
+    def integration_view(self) -> dict:
+        return {
+            **self.guard.describe(),
+            "config": self.integration.CONFIG,
+            "files": self.files,
+            "module": self.integration.__name__,
+        }
 
     def _ticket_view(self, ticket_id: str) -> dict:
         entry = self.tickets[ticket_id]
@@ -100,8 +108,6 @@ class Desk:
         }
 
     # -- worker --------------------------------------------------------------
-
-    _busy = False
 
     def _worker(self) -> None:
         while True:
@@ -141,8 +147,14 @@ class Desk:
     def _job_resolve(self, ticket_id: str, memory: PolicyMemory | None) -> None:
         entry = self.tickets[ticket_id]
         entry["status"] = "running"
-        loop = Loop(self.world, self.kb, self.index, memory or self.memory, emit=self.bus.emit)
-        run = loop.resolve(entry["ticket"])
+        guard = self.guard
+        if memory is not None:  # a one-off answer: same systems, extra rule for this ticket only
+            original, guard.memory = guard.memory, memory
+        try:
+            run = Loop(guard, emit=self.bus.emit).resolve(entry["ticket"])
+        finally:
+            if memory is not None:
+                guard.memory = original
         self._save_run(run)
         with self.lock:
             entry["runs"].append(run.to_dict())
@@ -159,74 +171,48 @@ class Desk:
     # -- decisions -----------------------------------------------------------
 
     def _open_decision(self, ticket: dict, run: TicketRun) -> None:
-        choice = run.choice
-        customer, order, finding = choice["customer"], choice["order"], choice["finding"]
-        days_over = finding["data"]["days_over"]
+        finding = run.choice["finding"]
+        choice = finding["data"]["choice"]
         decision = {
             "id": f"Q-{uuid.uuid4().hex[:5]}",
             "ticket_id": ticket["id"],
             "status": "open",
             "created_at": _now(),
-            "question": (
-                f"{customer['name']} has been a customer for {customer['tenure_years']:g} years and is "
-                f"{days_over} day{'s' if days_over != 1 else ''} past the "
-                f"{finding['data']['window_days']}-day refund window for the {order['product']} "
-                f"(${order['amount']:.2f}). Refund, store credit, or decline?"
-            ),
-            "facts": {
-                "customer": customer["name"],
-                "plan": customer["plan"],
-                "tenure_years": customer["tenure_years"],
-                "product": order["product"],
-                "amount": order["amount"],
-                "days_since_purchase": order["days_since_purchase"],
-                "window_days": finding["data"]["window_days"],
-                "days_over": days_over,
-            },
+            "domain": choice["domain"],
+            "question": choice["question"],
+            "facts": choice["facts"],
+            "highlights": [list(h) for h in choice["highlights"]],
+            "options": choice["options"],
+            "conditions": choice["conditions"],
             "why": finding["detail"],
-            "evidence": choice["evidence"],
-            "agent_question": choice["agent_question"],
-            "options": [
-                {"value": "refund", "label": "Refund in full"},
-                {"value": "store_credit", "label": "Offer store credit"},
-                {"value": "decline", "label": "Decline politely"},
-            ],
-            "suggested_scope": {
-                "min_tenure_years": float(min(2, math.floor(customer["tenure_years"]))),
-                "max_days_over": max(days_over, 7),
-            },
+            "evidence": run.choice["evidence"],
+            "agent_question": run.choice["agent_question"],
+            "decided_by": self.guard.config.get("decisions", {}).get("decided_by", "Support lead"),
             "trace_url": run.trace_url,
             "attempts": [],
         }
         self.decisions[decision["id"]] = decision
         self.bus.emit("decision.opened", decision=decision)
 
-    def answer(
-        self,
-        decision_id: str,
-        outcome: str,
-        scope: str,
-        min_tenure_years: float,
-        max_days_over: int,
-        decided_by: str = "Maya",
-    ) -> None:
-        self.jobs.put(("answer", (decision_id, outcome, scope, min_tenure_years, max_days_over, decided_by)))
+    def answer(self, decision_id: str, outcome: str, scope: str, values: dict[str, float]) -> None:
+        self.jobs.put(("answer", (decision_id, outcome, scope, values)))
 
-    def _job_answer(
-        self, decision_id: str, outcome: str, scope: str, min_tenure_years: float, max_days_over: int, decided_by: str
-    ) -> None:
+    def _job_answer(self, decision_id: str, outcome: str, scope: str, values: dict[str, float]) -> None:
         decision = self.decisions[decision_id]
+        labels = {o["value"]: o["label"] for o in decision["options"]}
+        conditions = [
+            {**c, "value": type(c["value"])(values.get(c["field"], c["value"]))} for c in decision["conditions"]
+        ]
         rule = self.memory.new_rule(
-            kind="refund_exception",
-            min_tenure_years=float(min_tenure_years),
-            max_days_over=int(max_days_over),
+            domain=decision["domain"],
+            conditions=conditions,
             outcome=outcome,
+            outcome_label=labels[outcome].replace(" in full", "").replace(" politely", ""),
             question=decision["question"],
             source_ticket=decision["ticket_id"],
-            decided_by=decided_by,
+            decided_by=decision["decided_by"],
         )
         if scope == "once":
-            rule.status = "active"
             decision.update(status="answered", answered_at=_now(), scope="once", rule=rule.__dict__)
             self.bus.emit("decision.answered", decision=decision)
             self._job_resolve(decision["ticket_id"], PolicyMemory.ephemeral(self.memory.active() + [rule]))
@@ -234,12 +220,12 @@ class Desk:
 
         rule.status = "candidate"
         decision["status"] = "checking"
-        self.bus.emit("decision.checking", decision=decision, rule=rule.__dict__ | {"describe": rule.describe()})
-        candidate = PolicyMemory.ephemeral(self.memory.active() + [Rule(**{**rule.__dict__, "status": "active"})])
-        drift = run_drift(candidate, emit=self.bus.emit)
-        attempt = {"rule": rule.__dict__ | {"describe": rule.describe()}, "drift": drift, "at": _now()}
-        decision["attempts"].append(attempt)
-        self.drift = drift | {"at": _now(), "rule": rule.describe()}
+        self.bus.emit("decision.checking", decision=decision, rule=rule.__dict__ | {"describe": rule.describe})
+        candidate = PolicyMemory.ephemeral(self.memory.active() + [rule])
+        candidate.rules[-1].status = "active"
+        drift = run_drift(self.integration.create_guard, candidate, emit=self.bus.emit)
+        decision["attempts"].append({"rule": rule.__dict__ | {"describe": rule.describe}, "drift": drift, "at": _now()})
+        self.drift = drift | {"at": _now(), "rule": rule.describe}
         if drift["passed"] == drift["total"]:
             rule.status = "active"
             self.memory.add(rule)
@@ -258,5 +244,5 @@ class Desk:
         self.jobs.put(("drift", ()))
 
     def _job_drift(self) -> None:
-        drift = run_drift(self.memory, emit=self.bus.emit)
+        drift = run_drift(self.integration.create_guard, self.memory, emit=self.bus.emit)
         self.drift = drift | {"at": _now(), "rule": None}

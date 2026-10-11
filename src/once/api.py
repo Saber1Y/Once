@@ -20,10 +20,9 @@ desk = Desk()
 
 
 class Answer(BaseModel):
-    outcome: Literal["refund", "store_credit", "decline"]
+    outcome: str = Field(min_length=1, max_length=40)
     scope: Literal["once", "always"]
-    min_tenure_years: float = Field(ge=0, le=50)
-    max_days_over: int = Field(ge=1, le=365)
+    values: dict[str, float] = Field(default_factory=dict)  # condition field -> value for the rule
 
 
 class NewTicket(BaseModel):
@@ -35,6 +34,11 @@ class NewTicket(BaseModel):
 @app.get("/api/state")
 def state() -> dict:
     return desk.snapshot() | {"llm_ready": settings.llm_ready, "today": settings.today.isoformat()}
+
+
+@app.get("/api/integration")
+def integration() -> dict:
+    return desk.integration_view()
 
 
 @app.get("/api/tickets/{ticket_id}")
@@ -79,8 +83,13 @@ def answer(decision_id: str, body: Answer) -> dict:
         raise HTTPException(404, "No such decision")
     if decision["status"] not in ("open", "held"):
         raise HTTPException(409, f"Decision is {decision['status']}")
+    if body.outcome not in {o["value"] for o in decision["options"]}:
+        raise HTTPException(422, "Unknown outcome for this decision")
+    fields = {c["field"] for c in decision["conditions"]}
+    if set(body.values) - fields:
+        raise HTTPException(422, f"Unknown rule fields: {sorted(set(body.values) - fields)}")
     decision["status"] = "checking" if body.scope == "always" else "answering"
-    desk.answer(decision_id, body.outcome, body.scope, body.min_tenure_years, body.max_days_over)
+    desk.answer(decision_id, body.outcome, body.scope, body.values)
     return {"ok": True}
 
 

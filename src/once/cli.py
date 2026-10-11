@@ -41,69 +41,66 @@ def cmd_serve(args) -> None:
 
 
 def cmd_kb(_args) -> None:
-    from once.policy import refund_window_days
-    from once.world.kb import KnowledgeBase
+    from once import integrations
 
-    kb = KnowledgeBase()
-    for article in kb.all():
+    acme = integrations.load()
+    env = acme.AcmeEnv.fresh()
+    for article in env.kb.all():
         print(json.dumps(article.summary()))
-    print("current refund window:", refund_window_days(kb))
+    print("search index:", env.index.article_ids)
+
+
+def _guard(memory=None):
+    from once import PolicyMemory, integrations
+    from once.tracing import init_tracing
+
+    init_tracing()
+    integration = integrations.load()
+    return integration, integration.create_guard(memory or PolicyMemory.ephemeral())
 
 
 def cmd_demo(args) -> None:
     from once.loop import Loop
-    from once.policy import PolicyMemory
-    from once.tracing import flush, init_tracing
-    from once.world.kb import KnowledgeBase, SearchIndex
-    from once.world.store import World
+    from once.tracing import flush
 
-    init_tracing()
-    kb = KnowledgeBase()
-    world, index = World.seeded(), SearchIndex(kb)
-    memory = PolicyMemory.ephemeral()
-    tickets = json.load(open("data/tickets.json"))["queue"]
+    integration, guard = _guard()
+    tickets = integration.demo_tickets()
     if args.ticket:
         tickets = [t for t in tickets if t["id"] in args.ticket]
-    loop = Loop(world, kb, index, memory)
+    loop = Loop(guard)
     for ticket in tickets:
         _print_run(loop.resolve(ticket))
     flush()
 
 
 def cmd_repeat(args) -> None:
-    """Run one ticket N times on a fresh, stale-seeded index; report appear/caught rates."""
+    """Run one ticket N times on fresh systems (stale-seeded index); report appear and catch rates."""
+    from once import PolicyMemory
     from once.loop import Loop
-    from once.policy import PolicyMemory
-    from once.tracing import flush, init_tracing
-    from once.world.kb import KnowledgeBase, SearchIndex
-    from once.world.store import World
+    from once.tracing import flush
 
-    init_tracing()
-    kb = KnowledgeBase()
-    ticket = next(t for t in json.load(open("data/tickets.json"))["queue"] if t["id"] == args.ticket)
-    appeared = caught = clean_final = 0
+    integration, _ = _guard()
+    ticket = next(t for t in integration.demo_tickets() if t["id"] == args.ticket)
+    appeared = caught = resolved = 0
     for i in range(args.n):
-        loop = Loop(World.seeded(), kb, SearchIndex(kb), PolicyMemory.ephemeral())
-        run = loop.resolve(ticket)
+        run = Loop(integration.create_guard(PolicyMemory.ephemeral())).resolve(ticket)
         first = {f["code"] for f in run.attempts[0]["findings"]} if run.attempts else set()
-        hit = bool(first & {"stale_source", "wrong_window", "wrong_outcome"})
+        hit = bool(first & {"outdated_source", "wrong_window", "wrong_outcome"})
         appeared += hit
         caught += hit and run.status == "resolved"
-        clean_final += run.status == "resolved"
+        resolved += run.status == "resolved"
         print(f"run {i + 1}: first-attempt findings={sorted(first) or 'clean'} final={run.status}")
-    print(
-        f"\nfailure appeared {appeared}/{args.n}; caught and fixed {caught}/{appeared}; resolved {clean_final}/{args.n}"
-    )
+    print(f"\nfailure appeared {appeared}/{args.n}; caught and fixed {caught}/{appeared}; resolved {resolved}/{args.n}")
     flush()
 
 
 def cmd_drift(_args) -> None:
+    from once import PolicyMemory
     from once.drift import run_drift
-    from once.policy import PolicyMemory
-    from once.tracing import flush, init_tracing
+    from once.tracing import flush
 
-    init_tracing()
-    summary = run_drift(PolicyMemory())
+    integration, _ = _guard()
+    summary = run_drift(integration.create_guard, PolicyMemory.ephemeral())
     for r in summary["results"]:
         print(f"{'PASS' if r['passed'] else 'FAIL'} {r['id']} {r['title']}: {r['detail']}")
     print(f"\n{summary['passed']}/{summary['total']} distinctive cases hold")
@@ -123,7 +120,7 @@ def main() -> None:
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8787)
     serve.set_defaults(fn=cmd_serve)
-    sub.add_parser("kb", help="Show the live knowledge base as Once sees it").set_defaults(fn=cmd_kb)
+    sub.add_parser("kb", help="Show the integration's help center as Once sees it").set_defaults(fn=cmd_kb)
     demo = sub.add_parser("demo", help="Run the seeded queue headless")
     demo.add_argument("ticket", nargs="*")
     demo.set_defaults(fn=cmd_demo)
