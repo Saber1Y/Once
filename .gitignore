@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+data/once.db
+data/kb_cache/
+runs/
+web/node_modules/
+web/dist/
+.DS_Store
+.ruff_cache/
+.pytest_cache/
