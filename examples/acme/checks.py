@@ -20,7 +20,12 @@ CALLBACK_PROMISE = re.compile(
     r"|\bcall you (back|shortly|soon|now|today)\b",
     re.I,
 )
-WINDOW_CLAIM = re.compile(r"\b(\d{1,3})[- ]day\b|\bwithin (\d{1,3}) days\b", re.I)
+# Only phrasing that states the refund window itself, not e.g. "a 7-day grace period" from a remembered rule.
+WINDOW_CLAIM = re.compile(
+    r"\b(\d{1,3})[- ]day (?:refund |return )?(?:window|policy)\b"
+    r"|\bwithin (\d{1,3}) days of (?:the |your )?(?:original |date of )?(?:purchase|transaction|order|delivery)",
+    re.I,
+)
 
 OUTCOME_LABELS = {"refund": "Refund in full", "store_credit": "Offer store credit", "decline": "Decline politely"}
 RULE_LABELS = {"refund": "Refund", "store_credit": "Offer store credit", "decline": "Decline"}
@@ -181,7 +186,8 @@ def refund_policy(ctx: CheckContext) -> list[Finding]:
                 )
             )
         claimed = {int(a or b) for a, b in WINDOW_CLAIM.findall(s.draft)}
-        wrong = sorted(n for n in claimed if n != exp["window"] and n >= 7)
+        from_rules = {c["value"] for r in ctx.memory.active() for c in r.conditions}
+        wrong = sorted(n for n in claimed if n != exp["window"] and n not in from_rules)
         if wrong:
             findings.append(
                 Finding(

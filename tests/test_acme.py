@@ -158,3 +158,12 @@ def test_address_change_that_never_lands_is_caught(guard):
     [finding] = after_commit(CheckContext({"id": "T-101"}, s, guard.memory, guard), commits)
     assert finding.code == "side_effect_missing" and finding.data["claimed_success"]
     assert w.order("O-5001")["shipping_address"] != "88 River Road"
+
+
+def test_window_check_ignores_grace_periods_but_catches_stale_windows(guard):
+    from acme.checks import WINDOW_CLAIM
+
+    assert not WINDOW_CLAIM.search("You are within the 7-day grace period, so I refunded you.")
+    assert WINDOW_CLAIM.search("Refunds are accepted within 30 days of purchase.")
+    assert WINDOW_CLAIM.search("Our 30-day refund window covers this.")
+    assert WINDOW_CLAIM.search("Our 14-day policy is strict, but as a 4-year customer you qualify.") is not None
