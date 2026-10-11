@@ -281,7 +281,7 @@ Live-model checks: `make demo` (headless queue), `make drift` (distinctive cases
 cd Once
 uv sync
 cp .env.example .env  # fill in keys
-uv run once kb        # sanity check: ACME's help center as Once sees it
+uv run once integration  # what ACME registered: actions, checks, cases
 uv run once serve     # http://127.0.0.1:8787
 ```
 

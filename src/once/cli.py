@@ -40,14 +40,13 @@ def cmd_serve(args) -> None:
     uvicorn.run("once.api:app", host=args.host, port=args.port, reload=False)
 
 
-def cmd_kb(_args) -> None:
-    from once import integrations
+def cmd_integration(_args) -> None:
+    """Print what the connected company registered with Once."""
+    from once import PolicyMemory, integrations
 
-    acme = integrations.load()
-    env = acme.AcmeEnv.fresh()
-    for article in env.kb.all():
-        print(json.dumps(article.summary()))
-    print("search index:", env.index.article_ids)
+    integration = integrations.load()
+    guard = integration.create_guard(PolicyMemory.ephemeral())
+    print(json.dumps(guard.describe(), indent=2))
 
 
 def _guard(memory=None):
@@ -120,7 +119,7 @@ def main() -> None:
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8787)
     serve.set_defaults(fn=cmd_serve)
-    sub.add_parser("kb", help="Show the integration's help center as Once sees it").set_defaults(fn=cmd_kb)
+    sub.add_parser("integration", help="Show what the connected company registered").set_defaults(fn=cmd_integration)
     demo = sub.add_parser("demo", help="Run the seeded queue headless")
     demo.add_argument("ticket", nargs="*")
     demo.set_defaults(fn=cmd_demo)

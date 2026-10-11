@@ -18,13 +18,13 @@ from once.memory import PolicyMemory
 
 
 @neatlogs.span(kind="WORKFLOW", name="once_drift_check")
-def run_drift(create_guard: Callable[..., Guard], memory: PolicyMemory, emit=None, workers: int = 3) -> dict:
+def run_drift(make_guard: Callable[..., Guard], memory: PolicyMemory, emit=None, workers: int = 3) -> dict:
     emit = emit or (lambda *a, **k: None)
-    cases: list[DriftCase] = create_guard(PolicyMemory.ephemeral(memory.active())).cases
+    cases: list[DriftCase] = make_guard(PolicyMemory.ephemeral(memory.active())).cases
     emit("drift.started", total=len(cases), rules=[r.describe for r in memory.active()])
 
     def one(case: DriftCase) -> dict:
-        guard = create_guard(PolicyMemory.ephemeral(memory.active()))  # fresh systems for every case
+        guard = make_guard(PolicyMemory.ephemeral(memory.active()))  # fresh systems for every case
         run = Loop(guard).resolve(case.ticket)
         try:
             ok, detail = case.expect(run, guard)
