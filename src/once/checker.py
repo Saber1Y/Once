@@ -64,9 +64,21 @@ class Checker:
     @neatlogs.span(kind="CHAIN", name="check_before_commit")
     def before_commit(self, ticket: dict, attempt: Attempt) -> tuple[list[Finding], dict[str, Expectation]]:
         findings: list[Finding] = []
-        findings += self._stale_sources(attempt)
         expectations = self._refund_expectations(ticket, attempt)
+        findings += self._stale_sources(attempt, relevant=bool(expectations))
         findings += self._refund_outcomes(attempt, expectations)
+        if attempt.decision_request and not expectations:
+            findings.append(
+                Finding(
+                    "needless_escalation",
+                    "trajectory",
+                    "mechanical",
+                    "Escalated a routine request",
+                    "The agent asked the support lead, but ACME only treats refund exceptions as business "
+                    "decisions. This request is routine and should be resolved directly.",
+                    evidence=[s.id for s in attempt.ledger.find("request_decision")],
+                )
+            )
         findings += self._promises(attempt)
         if not any(f.code == "stale_source" for f in findings):
             findings += self._window_claims(attempt, expectations)
@@ -75,11 +87,13 @@ class Checker:
             findings.append(Finding("no_reply", "trajectory", "mechanical", "Agent did not finish", attempt.error))
         return findings, expectations
 
-    def _stale_sources(self, attempt: Attempt) -> list[Finding]:
+    def _stale_sources(self, attempt: Attempt, relevant: bool) -> list[Finding]:
+        """Flag outdated articles the answer could rest on: on a refund ticket, or quoted in the draft."""
         findings = []
         for article_id in attempt.kb_articles():
             page = self.kb.page(article_id)
-            if page.status == "outdated":
+            quoted = any(n in attempt.draft for n in re.findall(r"\b\d+ days\b", page.body))
+            if page.status == "outdated" and (relevant or quoted):
                 steps = [
                     s.id
                     for s in attempt.ledger.find("search_kb")

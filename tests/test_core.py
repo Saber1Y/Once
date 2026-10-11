@@ -190,3 +190,20 @@ def test_checker_catches_false_success_after_failed_write(world, kb):
     commits = [{"action": action, "result": result, "ok": True, "step_id": "a1.2"}]
     findings = Checker(world, kb, PolicyMemory.ephemeral()).after_commit(attempt, commits)
     assert findings[0].code == "side_effect_missing" and findings[0].data["claimed_success"]
+
+
+def test_checker_flags_routine_escalation_and_ignores_irrelevant_stale_hits(world, kb):
+    index = SearchIndex(kb)
+    attempt = attempt_with(
+        world,
+        [
+            ("lookup_customer", {"email": "priya@example.com"}, lambda: world.customer(email="priya@example.com")),
+            ("search_kb", {"query": "refund address"}, lambda: index.search("refund address")),
+        ],
+        draft="I've passed your address change to our support lead.",
+    )
+    attempt.decision_request = {"question": "Allow address change?", "options": ["Allow", "Deny"]}
+    findings, _ = Checker(world, kb, PolicyMemory.ephemeral()).before_commit(
+        {"id": "T-101", "subject": "Wrong shipping address", "body": "Please send it to 88 River Road"}, attempt
+    )
+    assert [f.code for f in findings] == ["needless_escalation"]
