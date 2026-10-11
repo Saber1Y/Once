@@ -12,3 +12,6 @@ web/dist/
 .DS_Store
 .ruff_cache/
 .pytest_cache/
+data/tenants/
+data/policies.*
+examples/*/data/kb_cache/
