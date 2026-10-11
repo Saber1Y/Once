@@ -1,7 +1,7 @@
 # Once
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
-![Tests](https://img.shields.io/badge/tests-11%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-12%20passing-brightgreen)
 ![Tracing](https://img.shields.io/badge/tracing-neatlogs-blue)
 ![Loop](https://img.shields.io/badge/loop-act%20%E2%86%92%20check%20%E2%86%92%20fix%20or%20ask%20%E2%86%92%20remember-blueviolet)
 ![Stack](https://img.shields.io/badge/stack-Python%20+%20FastAPI%20+%20React-orange)
@@ -61,7 +61,8 @@ Two of them fail on purpose and get fixed, one stops and asks you, and a later o
 
 ## Screenshots
 
-Screenshots of a live run are added after the first traced run against the LiteLLM proxy (see the honesty table).
+The demo video shows the console live.
+The first traced run, with trace ids, drift results and the held rule, is written up in [docs/evidence/live-run-2026-10-11.md](docs/evidence/live-run-2026-10-11.md), and every claim maps to evidence in [claims.yaml](claims.yaml).
 
 ## The one rule
 
@@ -219,16 +220,17 @@ The escalation boundary is explicit configuration, so "ask a human" is predictab
 | neatlogs trace export | Real when `NEATLOGS_API_KEY` is set; otherwise spans stay local and the console says so |
 | neatlogs trace deep links | Not yet established - dashboard route is configurable via `NEATLOGS_TRACE_URL` |
 | Trace readback via Public API | Not yet established - planned behind `NEATLOGS_TOKEN` |
-| End-to-end run against the LiteLLM proxy | Not yet established - pending the team key |
-| Entire checkpoints | Not yet established - pending install |
+| End-to-end run with a real model | Real - Gemini via its OpenAI-compatible endpoint, traced in neatlogs ([evidence](docs/evidence/live-run-2026-10-11.md)) |
+| Run against the neatHack LiteLLM proxy | Not yet established - same code path, pending the team key |
+| Entire checkpoints | Real - enabled on the repo, checkpoints pushed with commits |
 
-The core loop is implemented and unit-tested; the live model run and screenshots are the next step.
+The core loop is implemented, unit-tested and verified in a live traced run; tier-2 judge rewrites are recorded as unverified fixes.
 
 ## Tests
 
 | Suite | Tests | Covers |
 | --- | --- | --- |
-| `tests/test_core.py` | 11 | KB parsing, supersession, stale index, async address fault, refund limits, oracle, rules, every deterministic check |
+| `tests/test_core.py` | 12 | KB parsing, supersession, stale index, async address fault, refund limits, oracle, rules, every deterministic check |
 
 ```bash
 cd Once && make test  # pytest
