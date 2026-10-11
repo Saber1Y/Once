@@ -82,7 +82,7 @@ export default function App() {
             <nav className="flex items-center gap-1 text-[13px]" aria-label="Views">
               {(
                 [
-                  ["desk", `${state?.company ?? ""} desk`],
+                  ["desk", state ? `${state.company} desk` : "Desk"],
                   ["integration", "Integration"],
                 ] as const
               ).map(([key, label]) => (
@@ -127,7 +127,7 @@ export default function App() {
         >
           <div className="max-w-3xl">
             <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted">
-              {view === "desk" ? `Guarding ${state?.company ?? ""}'s support agent` : `${state?.company ?? ""} is connected`}
+              {!state ? "\u00a0" : view === "desk" ? `Guarding ${state.company}'s support agent` : `${state.company} is connected`}
             </p>
             {view === "desk" ? (
               <h1 className="mt-3 text-[38px] font-semibold leading-[1.08] tracking-[-0.035em] text-ink-strong md:text-[56px]">
@@ -138,7 +138,7 @@ export default function App() {
             ) : (
               <>
                 <h1 className="mt-3 text-[38px] font-semibold leading-[1.08] tracking-[-0.035em] text-ink-strong md:text-[56px]">
-                  {state?.company}'s agent,
+                  {state ? `${state.company}'s agent,` : "\u00a0"}
                   <br />
                   <span className="text-faint">now behind Once.</span>
                 </h1>
