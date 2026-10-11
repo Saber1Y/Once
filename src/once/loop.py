@@ -1,7 +1,8 @@
-"""The Once loop: act, check, classify, route, fix, verify.
+"""The Once loop: act, check, fix what's mechanical, ask what's a choice, commit, verify.
 
-One ticket = one neatlogs WORKFLOW trace. Each agent attempt is an AGENT span
-inside it, so the failed attempt and the fixed one sit side by side in the trace.
+It runs any company's ``Guard``. One ticket = one neatlogs WORKFLOW trace; each
+agent attempt is an AGENT span inside it, so the failed attempt and the fixed one
+sit side by side in the trace.
 """
 
 from __future__ import annotations
@@ -12,15 +13,12 @@ from typing import Any
 
 import neatlogs
 
-from once.agent import Attempt, SupportAgent
-from once.checker import Checker, Finding
-from once.policy import PolicyMemory
+from once import checks
+from once.core import CheckContext, Finding, Guard, Session
 from once.tracing import current_trace_id, trace_url
-from once.world.kb import KnowledgeBase, SearchIndex
-from once.world.store import World
 
 MAX_ATTEMPTS = 4
-MAX_SIDE_EFFECT_RETRIES = 2
+MAX_WRITE_RETRIES = 2
 
 Emit = Callable[..., Any]
 
@@ -28,6 +26,7 @@ Emit = Callable[..., Any]
 @dataclass
 class TicketRun:
     ticket_id: str
+    company: str
     status: str = "running"  # running | resolved | waiting_on_you | failed
     trace_id: str | None = None
     trace_url: str | None = None
@@ -44,90 +43,84 @@ class TicketRun:
 
 
 class Loop:
-    def __init__(
-        self, world: World, kb: KnowledgeBase, index: SearchIndex, memory: PolicyMemory, emit: Emit | None = None
-    ) -> None:
-        self.world = world
-        self.kb = kb
-        self.index = index
-        self.memory = memory
+    def __init__(self, guard: Guard, emit: Emit | None = None) -> None:
+        self.guard = guard
         self.emit = emit or (lambda *a, **k: None)
-        self.agent = SupportAgent(world, index, kb, memory)
-        self.checker = Checker(world, kb, memory)
 
-    @neatlogs.span(kind="WORKFLOW", name="resolve_ticket")
+    @neatlogs.span(kind="WORKFLOW", name="once_resolve_ticket")
     def resolve(self, ticket: dict) -> TicketRun:
-        run = TicketRun(ticket_id=ticket["id"])
+        run = TicketRun(ticket_id=ticket["id"], company=self.guard.company)
         run.trace_id = current_trace_id()
         run.trace_url = trace_url(run.trace_id)
-        neatlogs.log("ticket {ticket_id}", ticket_id=ticket["id"])
+        neatlogs.log("{company} ticket {ticket_id}", company=self.guard.company, ticket_id=ticket["id"])
         self.emit("ticket.started", ticket_id=ticket["id"], trace_id=run.trace_id, trace_url=run.trace_url)
         try:
             self._resolve(ticket, run)
-        except Exception as exc:  # surface, never hide: the console shows the error
+        except Exception as exc:  # surfaced in the console, never hidden
             run.status, run.error = "failed", f"{type(exc).__name__}: {exc}"
             self.emit("ticket.failed", ticket_id=ticket["id"], error=run.error)
         return run
 
     def _resolve(self, ticket: dict, run: TicketRun) -> None:
-        corrections: list[str] = []
+        guidance: list[str] = []
         for number in range(1, MAX_ATTEMPTS + 1):
             self.emit("attempt.started", ticket_id=ticket["id"], attempt=number)
-            attempt = self.agent.run(ticket, number, corrections)
-            findings, expectations = self.checker.before_commit(ticket, attempt)
-            for exp in expectations.values():
-                if exp.rule_id:
-                    run.applied_rule = exp.rule_id
-            record = self._record(run, attempt, findings, phase="before_commit")
+            session = self.guard.attempt(ticket, number, guidance)
+            ctx = CheckContext(ticket, session, self.guard.memory, self.guard)
+            everything = checks.before_commit(ctx)
+            for f in everything:
+                if f.data.get("rule_id"):
+                    run.applied_rule = f.data["rule_id"]
+            findings = [f for f in everything if f.route != "info"]  # "info" notes never block a reply
+            record = self._record(run, session, findings)
+            record["notes"] = [f.to_dict() for f in everything if f.route == "info"]
             self.emit("attempt.checked", ticket_id=ticket["id"], attempt=record)
 
             choices = [f for f in findings if f.route == "choice"]
             if choices:
-                stale = [f for f in findings if f.code == "stale_source"]
-                if stale:  # repair the cause now so the resumed ticket doesn't hit it again
-                    self._fix_before_commit(ticket, run, stale, number)
+                # Repair causes now so the resumed ticket doesn't hit them again.
+                self._fix_before_commit(ticket, run, [f for f in findings if f.code == "outdated_source"], number)
                 run.status = "waiting_on_you"
                 run.choice = {
                     "finding": choices[0].to_dict(),
-                    "evidence": [s.to_dict() for s in attempt.ledger.steps if s.id in choices[0].evidence],
-                    "customer": attempt.customer(),
-                    "order": self.world.order(choices[0].data["order_id"]),
-                    "agent_question": attempt.decision_request,
+                    "evidence": [s.to_dict() for s in session.ledger.steps if s.id in choices[0].evidence],
+                    "agent_question": session.decision_request,
                 }
                 self.emit("ticket.waiting", ticket_id=ticket["id"], choice=run.choice)
                 return
 
             mechanical = [f for f in findings if f.route == "mechanical"]
             if mechanical:
-                corrections = corrections + self._fix_before_commit(ticket, run, mechanical, number)
+                guidance = guidance + self._fix_before_commit(ticket, run, mechanical, number)
                 continue
 
             if number > 1:
                 self._verified(ticket, run, number, "Re-run passed every check that failed before.")
-            commits = self._commit(attempt)
+            commits = self._commit(session)
             run.commits += commits
-            post = self.checker.after_commit(attempt, commits)
+            post = checks.after_commit(ctx, commits)
             if post:
                 record["post_commit"] = [f.to_dict() for f in post]
                 self.emit(
                     "attempt.post_checked", ticket_id=ticket["id"], attempt=number, findings=record["post_commit"]
                 )
-                facts = self._fix_after_commit(ticket, run, post, attempt)
-                attempt.draft = self.agent.redraft(ticket, attempt.draft, facts)
-                again, _ = self.checker.before_commit(ticket, attempt)
-                again = [f for f in again if f.code in ("forbidden_promise", "unsupported_amount", "wrong_window")]
-                if again:
-                    attempt.draft = self.agent.redraft(ticket, attempt.draft, facts + [f.detail for f in again])
-                self._verified(ticket, run, number, "Reply rewritten from verified facts; side effects read back.")
-            elif self.checker.needs_judge(attempt, findings):
-                judged = self.checker.judge(attempt)
+                facts = self._fix_after_commit(ticket, run, post, session)
+                session.draft = self._redraft(ticket, session.draft, facts)
+                self._verified(
+                    ticket,
+                    run,
+                    number,
+                    "Writes read back from the system of record; reply rewritten from verified facts.",
+                )
+            elif checks.needs_judge(session, findings):
+                judged = checks.judge(session)
                 if judged:
                     record["judge"] = [f.to_dict() for f in judged]
                     self._log_fix(ticket, run, number, judged[0], "Rewrote the reply without the unsupported claim.")
-                    attempt.draft = self.agent.redraft(
-                        ticket, attempt.draft, [f"Remove or correct: {f.detail}" for f in judged]
+                    session.draft = self._redraft(
+                        ticket, session.draft, [f"Remove or correct: {f.detail}" for f in judged]
                     )
-            run.reply = attempt.draft
+            run.reply = session.draft
             run.status = "resolved"
             self.emit(
                 "ticket.resolved",
@@ -144,15 +137,14 @@ class Loop:
 
     # -- helpers ---------------------------------------------------------------
 
-    def _record(self, run: TicketRun, attempt: Attempt, findings: list[Finding], phase: str) -> dict:
+    def _record(self, run: TicketRun, session: Session, findings: list[Finding]) -> dict:
         record = {
-            "number": attempt.number,
-            "steps": [s.to_dict() for s in attempt.ledger.steps],
-            "staged": attempt.staged,
-            "draft": attempt.draft,
-            "decision_request": attempt.decision_request,
+            "number": session.number,
+            "steps": [s.to_dict() for s in session.ledger.steps],
+            "staged": session.staged,
+            "draft": session.draft,
+            "decision_request": session.decision_request,
             "findings": [f.to_dict() for f in findings],
-            "phase": phase,
         }
         run.attempts.append(record)
         return record
@@ -178,10 +170,10 @@ class Loop:
 
     @neatlogs.span(kind="CHAIN", name="fix_before_commit")
     def _fix_before_commit(self, ticket: dict, run: TicketRun, findings: list[Finding], attempt: int) -> list[str]:
-        corrections = []
+        guidance = []
         for f in findings:
-            if f.code == "stale_source":
-                self.index.replace(f.data["stale"], f.data["current"])
+            if f.code == "outdated_source" and self.guard.sources and f.data.get("current"):
+                self.guard.sources.repair(f.data["stale"], f.data["current"])
                 self._log_fix(
                     ticket,
                     run,
@@ -189,116 +181,88 @@ class Loop:
                     f,
                     f"Repaired the search index: replaced {f.data['stale']} with {f.data['current']}.",
                 )
-            elif f.code == "wrong_outcome":
-                corrections.append(
-                    f"For order {f.data['order_id']} the correct outcome is "
-                    f"{f.data['expected'].replace('_', ' ')}. {f.detail.split('. ', 1)[-1]} "
-                    "Propose exactly that, and explain it to the customer."
-                )
-                self._log_fix(ticket, run, attempt, f, "Re-running with the policy-correct outcome.")
-            elif f.code == "wrong_amount":
-                corrections.append(f"Refund the full order total of ${f.data['expected_amount']:.2f}.")
-                self._log_fix(ticket, run, attempt, f, "Re-running with the correct amount.")
-            elif f.code == "forbidden_promise":
-                corrections.append(
-                    "The customer is on the Starter plan: do not promise, offer or schedule a phone call. "
-                    "Acknowledge the urgency, explain the 24-hour email support window, and ask for "
-                    "troubleshooting details."
-                )
-                self._log_fix(ticket, run, attempt, f, "Re-running without the phone-call promise.")
-            elif f.code == "wrong_window":
-                corrections.append(f"The current refund window is {f.data['window']} days.")
-                self._log_fix(ticket, run, attempt, f, "Re-running with the current refund window.")
-            elif f.code == "unsupported_amount":
-                corrections.append(f"Do not mention ${f.data['amount']:.2f}; only state amounts the tools returned.")
-                self._log_fix(ticket, run, attempt, f, "Re-running without the unsupported amount.")
-            elif f.code == "needless_escalation":
-                corrections.append(f"Do not call request_decision. {f.detail.split('but ', 1)[-1]}")
-                self._log_fix(ticket, run, attempt, f, "Re-running without escalating.")
             else:
-                corrections.append(f"Fix this problem: {f.detail}")
-                self._log_fix(ticket, run, attempt, f, "Re-running with the review note.")
-        return corrections
+                guidance.append(f.correction or f"Fix this problem: {f.detail}")
+                self._log_fix(ticket, run, attempt, f, "Re-running the agent with a precise correction.")
+        return guidance
 
     @neatlogs.span(kind="CHAIN", name="commit_actions")
-    def _commit(self, attempt: Attempt) -> list[dict]:
+    def _commit(self, session: Session) -> list[dict]:
         commits = []
-        for action in attempt.staged:
-            if action["type"] == "address_change":
-                fn = lambda a=action: self.world.request_address_change(a["order_id"], a["new_address"])  # noqa: E731
-            else:
-                fn = lambda a=action: self.world.refund(a["order_id"], a["amount"], a["reason"], a["type"])  # noqa: E731
-            result = attempt.ledger.record("commit", f"commit_{action['type']}", action, lambda f=fn: _commit_span(f))
-            step = attempt.ledger.last()
+        for action in session.staged:
+            spec = self.guard.actions[action["type"]]
+            params = {k: v for k, v in action.items() if k != "type"}
+            result = session.ledger.record(
+                "commit", f"commit_{spec.name}", params, lambda s=spec, p=params: s.commit(**p)
+            )
+            step = session.ledger.steps[-1]
             commits.append({"action": action, "result": result, "ok": step.ok, "step_id": step.id})
         return commits
 
     @neatlogs.span(kind="CHAIN", name="fix_after_commit")
-    def _fix_after_commit(self, ticket: dict, run: TicketRun, findings: list[Finding], attempt: Attempt) -> list[str]:
+    def _fix_after_commit(self, ticket: dict, run: TicketRun, findings: list[Finding], session: Session) -> list[str]:
         facts = []
         for f in findings:
+            action = f.data["action"]
+            label = action["type"].replace("_", " ")
             if f.code == "side_effect_missing":
-                landed, job, tries = self._retry_address(attempt, f.data["order_id"], f.data["new_address"])
-                order_id, address = f.data["order_id"], f.data["new_address"]
+                landed, tries, detail = self._retry_write(session, action)
                 if landed:
-                    facts.append(
-                        f"The address change for {order_id} to {address} is confirmed applied "
-                        f"(job {job.get('id')} done, order read back). It is safe to say it's updated."
-                    )
+                    facts.append(f"The {label} is confirmed applied ({detail}). It is safe to say it is done.")
                     self._log_fix(
                         ticket,
                         run,
-                        attempt.number,
+                        session.number,
                         f,
-                        "Retried the write and read the order back: address applied "
-                        f"after {tries} retr{'y' if tries == 1 else 'ies'}.",
+                        f"Retried the write and read it back: applied after {tries} "
+                        f"retr{'y' if tries == 1 else 'ies'}.",
                     )
                 else:
                     facts.append(
-                        f"The address change for {order_id} failed after retries. Do NOT say it is "
-                        "updated: tell the customer it is in progress and we will email a confirmation."
+                        f"The {label} failed after retries ({detail}). Do NOT say it is done: tell the customer it "
+                        "is in progress and that we will email a confirmation."
                     )
-                    self._log_fix(
-                        ticket,
-                        run,
-                        attempt.number,
-                        f,
-                        "Retries failed: reply rewritten to be honest, follow-up flagged.",
-                    )
+                    self._log_fix(ticket, run, session.number, f, "Retries failed: reply rewritten to be honest.")
             elif f.code == "commit_failed":
-                facts.append(
-                    f"The refund for {f.data['order_id']} did not go through: {f.detail}. Do not say it was processed."
-                )
-                self._log_fix(ticket, run, attempt.number, f, "Reply rewritten: refund did not go through.")
+                facts.append(f"The {label} did not go through: {f.detail}. Do not say it was done.")
+                self._log_fix(ticket, run, session.number, f, "Reply rewritten: the write did not go through.")
         return facts
 
-    def _retry_address(self, attempt: Attempt, order_id: str, address: str) -> tuple[bool, dict, int]:
-        job: dict = {}
-        for tries in range(1, MAX_SIDE_EFFECT_RETRIES + 1):
-            result = attempt.ledger.record(
-                "commit",
-                "retry_address_change",
-                {"order_id": order_id, "new_address": address},
-                lambda: _commit_span(lambda: self.world.request_address_change(order_id, address)),
+    def _retry_write(self, session: Session, action: dict) -> tuple[bool, int, str]:
+        spec = self.guard.actions[action["type"]]
+        params = {k: v for k, v in action.items() if k != "type"}
+        detail = ""
+        for tries in range(1, MAX_WRITE_RETRIES + 1):
+            result = session.ledger.record("commit", f"retry_{spec.name}", params, lambda: spec.commit(**params))
+            verdict = session.ledger.record(
+                "verify", f"read_back_{spec.name}", params, lambda r=result: list(spec.verify(action, r))
             )
-            order = attempt.ledger.record(
-                "verify",
-                "read_back_order",
-                {"order_id": order_id},
-                lambda: _verify_span(lambda: self.world.order(order_id)),
-            )
-            if isinstance(result, dict) and result.get("job_id"):
-                job = self.world.address_job(result["job_id"])
-            if order.get("shipping_address", "").strip().lower() == address.strip().lower():
-                return True, job, tries
-        return False, job, MAX_SIDE_EFFECT_RETRIES
+            landed, detail = (verdict[0], verdict[1]) if isinstance(verdict, list) else (False, str(verdict))
+            if landed:
+                return True, tries, detail
+        return False, MAX_WRITE_RETRIES, detail
 
+    @neatlogs.span(kind="CHAIN", name="redraft_reply")
+    def _redraft(self, ticket: dict, draft: str, facts: list[str]) -> str:
+        from once.llm import chat
 
-@neatlogs.span(kind="TOOL", name="commit_action")
-def _commit_span(fn):
-    return fn()
-
-
-@neatlogs.span(kind="TOOL", name="read_back")
-def _verify_span(fn):
-    return fn()
+        lines = "\n".join(f"- {f}" for f in facts)
+        message = chat(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "You rewrite customer-support replies so every statement is true. Keep the tone, signature "
+                        "and length, change only what the verified facts contradict. Return only the reply text."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Ticket: {ticket['body']}\n\nDraft reply:\n{draft}\n\n"
+                        f"Verified facts (override the draft):\n{lines}"
+                    ),
+                },
+            ]
+        )
+        return (message.content or "").strip()
