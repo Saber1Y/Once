@@ -91,7 +91,7 @@ export function DecisionCard({ decision, onError }: { decision: Decision; onErro
       </div>
 
       <div className="p-4">
-        <p className="font-serif text-[21px] leading-[1.2] tracking-[-0.01em] text-ink-strong">{decision.question}</p>
+        <p className="text-[16px] font-medium leading-[1.45] tracking-[-0.01em] text-ink-strong">{decision.question}</p>
 
         <dl className="mt-4 grid auto-cols-fr grid-flow-col divide-x divide-line rounded-lg border border-line">
           {decision.highlights.map(([k, v]) => (

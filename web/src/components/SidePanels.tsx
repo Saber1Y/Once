@@ -164,7 +164,7 @@ export function DriftBoard({
             <div className="flex items-baseline gap-2.5">
               <span
                 className={cx(
-                  "font-serif text-[44px] leading-none tracking-[-0.02em]",
+                  "tabular font-mono text-[38px] font-medium leading-none tracking-[-0.04em]",
                   !running && passed === total ? "text-green-fg" : !running ? "text-red-fg" : "text-ink-strong",
                 )}
               >

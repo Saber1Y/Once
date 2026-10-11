@@ -120,7 +120,7 @@ export function Empty({ icon, title, children }: { icon: ReactNode; title: strin
       <span className="flex size-10 items-center justify-center rounded-lg border border-line bg-subtle text-muted [&>svg]:size-5">
         {icon}
       </span>
-      <p className="font-serif text-xl leading-tight text-ink-strong">{title}</p>
+      <p className="text-[15px] font-semibold tracking-[-0.01em] text-ink-strong">{title}</p>
       {children && <p className="max-w-xs text-[13px] leading-relaxed text-muted">{children}</p>}
     </div>
   );

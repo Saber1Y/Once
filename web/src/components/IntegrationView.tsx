@@ -118,7 +118,7 @@ export function IntegrationView() {
               </span>
               <Tag tone="green">Connected</Tag>
             </div>
-            <h2 className="mt-4 font-serif text-[34px] leading-none tracking-[-0.02em] text-ink-strong">{data.company}</h2>
+            <h2 className="mt-4 text-[28px] font-semibold leading-none tracking-[-0.03em] text-ink-strong">{data.company}</h2>
             <p className="mt-2 text-[13.5px] leading-relaxed text-muted">{cfg.about}</p>
             <p className="mt-3 font-mono text-[11px] text-faint">module {data.module}</p>
           </div>

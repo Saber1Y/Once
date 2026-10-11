@@ -124,7 +124,7 @@ function AttemptBlock({ attempt, fixes, last }: { attempt: AttemptRecord; fixes:
       />
       {!last && <span className="absolute -bottom-6 left-[5px] top-5 w-px bg-line" />}
       <div className="flex items-baseline justify-between gap-3">
-        <span className="font-serif text-[22px] leading-none text-ink-strong">Attempt {attempt.number}</span>
+        <span className="text-[15px] font-semibold tracking-[-0.01em] text-ink-strong">Attempt {attempt.number}</span>
         <span className={cx("text-[12.5px]", clean ? "text-green-fg" : "text-red-fg")}>
           {clean ? "Passed every check" : `${findings.length} finding${findings.length > 1 ? "s" : ""}`}
         </span>
@@ -236,7 +236,7 @@ export function TicketDetail({
 
       <div className="scrollbar-thin min-h-0 flex-1 space-y-7 overflow-y-auto px-6 pb-24 pt-6 md:px-8">
         <div>
-          <h2 className="font-serif text-[32px] leading-[1.1] tracking-[-0.02em] text-ink-strong">{ticket.subject}</h2>
+          <h2 className="text-[24px] font-semibold leading-[1.2] tracking-[-0.025em] text-ink-strong">{ticket.subject}</h2>
           <p className="mt-1 text-[13px] text-muted">from {ticket.from}</p>
           <blockquote className="mt-4 border-l-2 border-ink-strong/80 pl-4 text-[15px] leading-relaxed text-ink">
             {ticket.body}

@@ -19,7 +19,7 @@ function Metric({ label, value, hint, tone }: { label: string; value: string | n
   return (
     <div className="sm:px-5 sm:first:pl-0" title={hint}>
       <p className="text-[12px] text-muted">{label}</p>
-      <p className={cx("mt-1 font-serif text-[34px] leading-none tracking-[-0.02em] text-ink-strong", tone)}>{value}</p>
+      <p className={cx("tabular mt-1.5 font-mono text-[28px] font-medium leading-none tracking-[-0.03em] text-ink-strong", tone)}>{value}</p>
     </div>
   );
 }
@@ -78,7 +78,7 @@ export default function App() {
       <header className="sticky top-0 z-50 border-b border-line bg-canvas/85 backdrop-blur-md">
         <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-3 px-4 py-3 md:px-8">
           <div className="flex items-center gap-5">
-            <span className="font-serif text-[26px] leading-none tracking-[-0.02em] text-ink-strong">Once</span>
+            <span className="flex items-center gap-2 text-[17px] font-semibold tracking-[-0.02em] text-ink-strong"><span className="size-2.5 rounded-[3px] bg-ink-strong" />Once</span>
             <nav className="flex items-center gap-1 text-[13px]" aria-label="Views">
               {(
                 [
@@ -130,17 +130,17 @@ export default function App() {
               {view === "desk" ? `Guarding ${state?.company ?? ""}'s support agent` : `${state?.company ?? ""} is connected`}
             </p>
             {view === "desk" ? (
-              <h1 className="mt-3 font-serif text-[44px] leading-[1.05] tracking-[-0.03em] text-ink-strong md:text-[64px]">
+              <h1 className="mt-3 text-[38px] font-semibold leading-[1.08] tracking-[-0.035em] text-ink-strong md:text-[56px]">
                 Fixes what's mechanical.
                 <br />
-                <em className="text-muted">Asks what's a choice. Only needs you once.</em>
+                <span className="text-faint">Asks what's a choice. Only needs you once.</span>
               </h1>
             ) : (
               <>
-                <h1 className="mt-3 font-serif text-[44px] leading-[1.05] tracking-[-0.03em] text-ink-strong md:text-[64px]">
+                <h1 className="mt-3 text-[38px] font-semibold leading-[1.08] tracking-[-0.035em] text-ink-strong md:text-[56px]">
                   {state?.company}'s agent,
                   <br />
-                  <em className="text-muted">now behind Once.</em>
+                  <span className="text-faint">now behind Once.</span>
                 </h1>
                 <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-muted">
                   Five steps in one file: point Once at the help center, hand it the agent, register each write with a

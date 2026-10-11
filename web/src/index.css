@@ -21,9 +21,8 @@
   --color-gray-bg: #f1f1ef;
   --color-gray-fg: #5f5e5b;
 
-  --font-sans: "Geist", "SF Pro Display", "Helvetica Neue", sans-serif;
-  --font-serif: "Instrument Serif", "Newsreader", serif;
-  --font-mono: "Geist Mono", "SF Mono", ui-monospace, monospace;
+  --font-sans: "IBM Plex Sans", "Helvetica Neue", sans-serif;
+  --font-mono: "IBM Plex Mono", "SF Mono", ui-monospace, monospace;
 }
 
 html {
@@ -37,6 +36,10 @@ body {
   font-family: var(--font-sans);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 ::selection {
