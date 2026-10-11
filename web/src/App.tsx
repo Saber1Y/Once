@@ -144,7 +144,7 @@ export default function App() {
           </div>
         )}
 
-        <div className="mt-8 grid gap-4 lg:h-[calc(100dvh-330px)] lg:min-h-[560px] lg:grid-cols-[280px_minmax(0,1fr)_360px]">
+        <div className="mt-8 grid gap-4 md:grid-cols-[240px_minmax(0,1fr)] md:[&>*:nth-child(-n+2)]:h-[640px] xl:h-[calc(100dvh-330px)] xl:min-h-[560px] xl:grid-cols-[272px_minmax(0,1fr)_360px] xl:[&>*:nth-child(-n+2)]:h-auto">
           <Queue tickets={tickets} selected={selected} onSelect={setSelected} />
           <TicketDetail
             ticket={ticket}
@@ -153,7 +153,7 @@ export default function App() {
             onRun={(id) => call(() => api.runTicket(id))()}
             onJumpToDecision={() => document.getElementById("decisions")?.scrollIntoView({ behavior: "smooth" })}
           />
-          <div className="scrollbar-thin space-y-4 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+          <div className="scrollbar-thin grid gap-4 md:col-span-2 md:grid-cols-2 md:items-start xl:col-span-1 xl:block xl:min-h-0 xl:space-y-4 xl:overflow-y-auto xl:pr-1">
             <Decisions decisions={state?.decisions ?? []} onError={setToast} />
             <DriftBoard drift={state?.drift ?? null} events={events} canRun={ready && !busy} onRun={call(api.drift)} />
             <Memory rules={state?.policies ?? []} index={state?.index ?? []} />
