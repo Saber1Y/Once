@@ -1,4 +1,4 @@
-"""ACME knowledge base.
+"""ACME's help center and the search index its agent retrieves from.
 
 Articles are the real public neatlogs `support-copilot-demo-kb` fixture, fetched
 live and cached under data/kb_cache. Two views exist on purpose:
@@ -15,10 +15,9 @@ from __future__ import annotations
 import html
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import httpx
-
-from once.config import DATA_DIR, settings
 
 ARTICLE_IDS = [
     "refund-policy-v3.0",
@@ -38,7 +37,8 @@ SEEDED_INDEX = [
     "checkout-outage-runbook",
 ]
 
-CACHE_DIR = DATA_DIR / "kb_cache"
+HELP_CENTER_URL = "https://neatlogs.github.io/support-copilot-demo-kb"
+CACHE_DIR = Path(__file__).parent / "data" / "kb_cache"
 
 
 @dataclass
@@ -102,7 +102,7 @@ class KnowledgeBase:
     """Live help-center pages with a local cache for offline runs."""
 
     def __init__(self, base_url: str | None = None) -> None:
-        self.base_url = base_url or settings.kb_base_url
+        self.base_url = (base_url or HELP_CENTER_URL).rstrip("/")
         self._articles: dict[str, Article] = {}
 
     def page(self, article_id: str) -> Article:
@@ -185,3 +185,35 @@ class SearchIndex:
         self.article_ids = [current_id if a == stale_id else a for a in self.article_ids]
         if current_id not in self.article_ids:
             self.article_ids.append(current_id)
+
+
+class HelpCenterSources:
+    """Lets Once audit ACME's help center: article status, and repairing the search index."""
+
+    def __init__(self, kb: KnowledgeBase, index: SearchIndex) -> None:
+        self.kb = kb
+        self.index = index
+
+    def status(self, article_id: str) -> tuple[str, str | None]:
+        page = self.kb.page(article_id)
+        return page.status, page.superseded_by
+
+    def title(self, article_id: str) -> str:
+        return self.kb.page(article_id).title
+
+    def body(self, article_id: str) -> str:
+        return self.kb.page(article_id).body
+
+    def repair(self, stale_id: str, current_id: str) -> None:
+        self.index.replace(stale_id, current_id)
+
+    def current(self, article_id: str) -> str:
+        """Follow superseded-by links to the current article."""
+        seen = set()
+        while article_id not in seen:
+            seen.add(article_id)
+            status, newer = self.status(article_id)
+            if status != "outdated" or not newer:
+                return article_id
+            article_id = newer
+        return article_id

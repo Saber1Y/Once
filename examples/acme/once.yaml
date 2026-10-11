@@ -1,0 +1,21 @@
+# ACME's Once configuration.
+company: ACME
+about: Online store. Its support agent handles refunds, address changes and billing questions.
+
+help_center: https://neatlogs.github.io/support-copilot-demo-kb
+
+systems:
+  - name: Help center
+    role: Source of truth for policy (Once audits article status)
+  - name: Order system
+    role: System of record for orders, refunds and addresses (fixture data in this demo)
+
+# Where policy ends and a person decides. Outside this boundary the written policy decides.
+choice_boundary:
+  refund_exception:
+    min_tenure_years: 1
+    max_days_over: 7
+
+decisions:
+  decided_by: Maya
+  channel: Once console

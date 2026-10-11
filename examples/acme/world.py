@@ -1,4 +1,4 @@
-"""The ACME fixture world: customers, orders, refunds and an async address service.
+"""ACME's order system (fixture): customers, orders, refunds and an async address service.
 
 This is fixture data (see data/world.json), not a real store. The address service
 behaves like many real ones: a write returns ``accepted`` and is applied by a
@@ -16,9 +16,7 @@ import uuid
 from datetime import date, timedelta
 from pathlib import Path
 
-from once.config import DATA_DIR, settings
-
-WORLD_FILE = DATA_DIR / "world.json"
+WORLD_FILE = Path(__file__).parent / "data" / "world.json"
 
 SCHEMA = """
 CREATE TABLE customers (id TEXT PRIMARY KEY, name TEXT, email TEXT UNIQUE, plan TEXT,
@@ -42,7 +40,7 @@ class World:
     """One isolated copy of the ACME world. Drift runs each get their own."""
 
     def __init__(self, path: Path | str = ":memory:", today: date | None = None) -> None:
-        self.today = today or settings.today
+        self.today = today or date.today()
         self._lock = threading.RLock()
         self.db = sqlite3.connect(str(path), check_same_thread=False)
         self.db.row_factory = sqlite3.Row
