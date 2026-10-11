@@ -2,11 +2,11 @@ import { useEffect, useRef } from "react";
 import type { DeskEvent, Finding, Fix } from "../types";
 
 const COLORS: Record<string, string> = {
-  system: "text-info",
-  success: "text-primary",
-  agent: "text-agent",
-  decision: "text-warn",
-  failure: "text-danger",
+  system: "text-blue-fg",
+  success: "text-green-fg",
+  agent: "text-gray-fg",
+  decision: "text-yellow-fg",
+  failure: "text-red-fg",
 };
 
 function describe(e: DeskEvent): { tag: string; tone: keyof typeof COLORS; text: string } | null {
@@ -68,21 +68,21 @@ export function EventLog({ events }: { events: DeskEvent[] }) {
   }, [events.length]);
   const rows = events.map((e) => ({ e, d: describe(e) })).filter((r) => r.d);
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-[#09090b] shadow-2xl">
-      <div className="flex items-center gap-2 border-b border-border/50 bg-[#121214] px-4 py-2.5">
-        <span className="size-2.5 rounded-full bg-red-500/80" />
-        <span className="size-2.5 rounded-full bg-yellow-500/80" />
-        <span className="size-2.5 rounded-full bg-green-500/80" />
-        <span className="ml-2 font-mono text-[10px] text-muted-foreground">once_loop.log</span>
+    <div className="overflow-hidden rounded-xl border border-line bg-surface">
+      <div className="flex items-center gap-2 border-b border-line bg-surface px-4 py-2.5">
+        <span className="size-2.5 rounded-full bg-[#e3e2de]" />
+        <span className="size-2.5 rounded-full bg-[#e3e2de]" />
+        <span className="size-2.5 rounded-full bg-[#e3e2de]" />
+        <span className="ml-2 font-mono text-[11px] text-muted">once_loop.log</span>
       </div>
-      <div ref={ref} className="scrollbar-thin h-44 overflow-y-auto px-4 py-3 font-mono text-[12px] leading-relaxed">
-        {rows.length === 0 && <div className="text-muted-foreground">Waiting for the first run…</div>}
+      <div ref={ref} className="scrollbar-thin h-44 overflow-y-auto bg-subtle px-4 py-3 font-mono text-[12px] leading-relaxed">
+        {rows.length === 0 && <div className="text-muted">Waiting for the first run…</div>}
         {rows.map(({ e, d }) => (
-          <div key={e.id} className="flex gap-3 text-foreground/80">
-            <span className="shrink-0 text-muted-foreground/60">
+          <div key={e.id} className="flex gap-3 text-ink">
+            <span className="shrink-0 text-faint">
               {new Date(e.ts * 1000).toLocaleTimeString([], { hour12: false })}
             </span>
-            <span className={`w-16 shrink-0 font-semibold ${COLORS[d!.tone]}`}>{d!.tag}</span>
+            <span className={`w-16 shrink-0 font-medium ${COLORS[d!.tone]}`}>{d!.tag}</span>
             <span className="min-w-0 break-words">{d!.text}</span>
           </div>
         ))}

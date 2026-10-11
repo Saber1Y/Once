@@ -1,42 +1,78 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: oklch(0.13 0.018 180);
-  --color-foreground: oklch(0.94 0.018 165);
-  --color-card: oklch(0.17 0.022 180);
-  --color-primary: oklch(0.88 0.18 116);
-  --color-primary-foreground: oklch(0.16 0.03 140);
-  --color-muted: oklch(0.21 0.025 180);
-  --color-muted-foreground: oklch(0.68 0.035 170);
-  --color-border: oklch(1 0 0 / 11%);
-  --color-ring: oklch(0.88 0.18 116);
-  --color-danger: oklch(0.7 0.19 25);
-  --color-warn: oklch(0.82 0.15 75);
-  --color-info: oklch(0.75 0.12 240);
-  --color-agent: oklch(0.74 0.14 300);
-  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-canvas: #f7f6f3;
+  --color-surface: #ffffff;
+  --color-subtle: #fbfbfa;
+  --color-line: #eaeaea;
+  --color-ink: #2f3437;
+  --color-ink-strong: #111111;
+  --color-muted: #787774;
+  --color-faint: #a5a49f;
+
+  --color-red-bg: #fdebec;
+  --color-red-fg: #9f2f2d;
+  --color-blue-bg: #e1f3fe;
+  --color-blue-fg: #1f6c9f;
+  --color-green-bg: #edf3ec;
+  --color-green-fg: #346538;
+  --color-yellow-bg: #fbf3db;
+  --color-yellow-fg: #956400;
+  --color-gray-bg: #f1f1ef;
+  --color-gray-fg: #5f5e5b;
+
+  --font-sans: "Geist", "SF Pro Display", "Helvetica Neue", sans-serif;
+  --font-serif: "Instrument Serif", "Newsreader", serif;
+  --font-mono: "Geist Mono", "SF Mono", ui-monospace, monospace;
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
   margin: 0;
-  background: #09090b;
-  color: var(--color-foreground);
+  background: var(--color-canvas);
+  color: var(--color-ink);
   font-family: var(--font-sans);
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
-  background: rgba(200, 245, 106, 0.3);
+  background: var(--color-yellow-bg);
+  color: var(--color-ink-strong);
 }
 
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: oklch(1 0 0 / 14%) transparent;
+  scrollbar-color: #dcdbd6 transparent;
+}
+
+.ambient {
+  position: fixed;
+  inset: -20vmax;
+  pointer-events: none;
+  background:
+    radial-gradient(40vmax 40vmax at 20% 10%, rgba(214, 180, 120, 0.09), transparent 70%),
+    radial-gradient(35vmax 35vmax at 85% 30%, rgba(160, 190, 210, 0.07), transparent 70%);
+  animation: drift 28s ease-in-out infinite alternate;
+}
+
+@keyframes drift {
+  to {
+    transform: translate3d(3vmax, 2vmax, 0);
+  }
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.breathe {
+  animation: breathe 1.6s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
