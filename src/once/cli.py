@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+
+VERBOSE = os.getenv("ONCE_VERBOSE") == "1"
 
 
 def _print_run(run) -> None:
@@ -12,6 +15,10 @@ def _print_run(run) -> None:
     for attempt in run.attempts:
         codes = ", ".join(f["code"] for f in attempt["findings"]) or "clean"
         print(f"   attempt {attempt['number']}: {codes}")
+        if VERBOSE:
+            for step in attempt["steps"]:
+                print(f"      {step['id']} {step['name']} {json.dumps(step['args'])[:90]} ok={step['ok']}")
+            print(f"      draft: {attempt['draft'][:300]!r}")
         for f in attempt.get("post_commit", []):
             print(f"   after commit: {f['code']}")
     for fix in run.fixes:
@@ -105,6 +112,11 @@ def cmd_drift(_args) -> None:
 
 
 def main() -> None:
+    import logging
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s", datefmt="%H:%M:%S")
+    for noisy in ("httpx", "neatlogs"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     parser = argparse.ArgumentParser(prog="once")
     sub = parser.add_subparsers(dest="cmd", required=True)
     serve = sub.add_parser("serve", help="Run the API and console")
