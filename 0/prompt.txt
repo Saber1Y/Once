@@ -1,0 +1,16 @@
+<bash-input>brew install --cask entire</bash-input><bash-stdout>==&gt; Downloading Homebrew API data
+✔︎ JSON API packages.arm64_tahoe.jws.json            Downloaded   15.7MB/ 15.7MB
+==&gt; Fetching downloads for: entireio/tap/entire
+✔︎ Cask entire (0.11.4)                              Downloaded   20.6MB/ 20.6MB
+==&gt; Installing Cask entire
+==&gt; Linking Binary 'entire' to '/opt/homebrew/bin/entire'
+==&gt; Linking Binary 'git-remote-entire' to '/opt/homebrew/bin/git-remote-entire'
+🍺  entire was successfully installed!</bash-stdout><bash-stderr></bash-stderr>
+
+---
+
+how do i get my neatlogs key? and the api key ..what free proivder can we use? google ai studio openrouter or which?
+
+---
+
+done
