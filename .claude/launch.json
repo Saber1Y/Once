@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "once",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "--project", "/Users/mac/codes/Once", "once", "serve", "--port", "8787"],
+      "port": 8787
+    }
+  ]
+}
