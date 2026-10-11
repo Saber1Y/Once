@@ -1,0 +1,45 @@
+{
+  "_note": "Fixture data for the fictional ACME store. Dates are relative to ONCE_TODAY so the demo stays stable.",
+  "customers": [
+    {"id": "C-1001", "name": "Priya Shah", "email": "priya@example.com", "plan": "Starter", "tenure_days": 440, "address": "14 Elm Street, Austin, TX 78701"},
+    {"id": "C-1002", "name": "Tom Becker", "email": "tom@example.com", "plan": "Starter", "tenure_days": 150, "address": "220 Lake Ave, Denver, CO 80203"},
+    {"id": "C-1003", "name": "Grace Okafor", "email": "grace@example.com", "plan": "Business", "tenure_days": 1500, "address": "9 Harbor Rd, Seattle, WA 98101"},
+    {"id": "C-1004", "name": "Luis Ortega", "email": "luis@example.com", "plan": "Starter", "tenure_days": 300, "address": "71 Pine St, Miami, FL 33101"},
+    {"id": "C-1005", "name": "Hannah Lee", "email": "hannah@example.com", "plan": "Starter", "tenure_days": 760, "address": "5 Birch Ct, Portland, OR 97201"},
+    {"id": "C-1006", "name": "Ken Watanabe", "email": "ken@example.com", "plan": "Business", "tenure_days": 560, "address": "33 Market St, San Jose, CA 95113"},
+    {"id": "C-1007", "name": "Amara Nwosu", "email": "amara@example.com", "plan": "Starter", "tenure_days": 90, "address": "18 Cedar Ln, Atlanta, GA 30303"},
+    {"id": "C-1008", "name": "Sam Patel", "email": "sam@example.com", "plan": "Starter", "tenure_days": 70, "address": "402 Oak Blvd, Chicago, IL 60601"},
+    {"id": "C-1009", "name": "Elena Rossi", "email": "elena@example.com", "plan": "Business", "tenure_days": 1170, "address": "61 Vine St, Boston, MA 02108"},
+    {"id": "C-1010", "name": "Ben Carter", "email": "ben@example.com", "plan": "Starter", "tenure_days": 400, "address": "7 Maple Dr, Phoenix, AZ 85004"},
+
+    {"id": "C-2001", "name": "Drift: Starter caller", "email": "d-starter@example.com", "plan": "Starter", "tenure_days": 200, "address": "1 Test Way, Austin, TX 78701"},
+    {"id": "C-2002", "name": "Drift: new customer late", "email": "d-new@example.com", "plan": "Starter", "tenure_days": 60, "address": "2 Test Way, Austin, TX 78701"},
+    {"id": "C-2003", "name": "Drift: loyal just late", "email": "d-loyal@example.com", "plan": "Business", "tenure_days": 1300, "address": "3 Test Way, Austin, TX 78701"},
+    {"id": "C-2004", "name": "Drift: in window", "email": "d-window@example.com", "plan": "Starter", "tenure_days": 500, "address": "4 Test Way, Austin, TX 78701"},
+    {"id": "C-2005", "name": "Drift: loyal very late", "email": "d-verylate@example.com", "plan": "Business", "tenure_days": 1400, "address": "5 Test Way, Austin, TX 78701"},
+    {"id": "C-2006", "name": "Drift: address change", "email": "d-address@example.com", "plan": "Starter", "tenure_days": 300, "address": "6 Test Way, Austin, TX 78701"}
+  ],
+  "orders": [
+    {"id": "O-5001", "customer_id": "C-1001", "product": "Wireless Keyboard", "amount": 89.00, "days_ago": 6},
+    {"id": "O-5002", "customer_id": "C-1002", "product": "Noise-cancelling Headphones", "amount": 249.00, "days_ago": 20},
+    {"id": "O-5003", "customer_id": "C-1003", "product": "Standing Desk", "amount": 640.00, "days_ago": 16},
+    {"id": "O-5004", "customer_id": "C-1004", "product": "Starter Plan (monthly)", "amount": 29.00, "days_ago": 3},
+    {"id": "O-5005", "customer_id": "C-1005", "product": "Cloud Backup Add-on", "amount": 39.00, "days_ago": 4},
+    {"id": "O-5006", "customer_id": "C-1006", "product": "27-inch Monitor", "amount": 320.00, "days_ago": 9},
+    {"id": "O-5007", "customer_id": "C-1007", "product": "Starter Plan (monthly)", "amount": 29.00, "days_ago": 12},
+    {"id": "O-5008", "customer_id": "C-1008", "product": "HD Webcam", "amount": 119.00, "days_ago": 40},
+    {"id": "O-5009", "customer_id": "C-1009", "product": "Ergonomic Chair", "amount": 480.00, "days_ago": 18},
+    {"id": "O-5010", "customer_id": "C-1010", "product": "Desk Lamp", "amount": 59.00, "days_ago": 24},
+
+    {"id": "O-6001", "customer_id": "C-2001", "product": "Starter Plan (monthly)", "amount": 29.00, "days_ago": 2},
+    {"id": "O-6002", "customer_id": "C-2002", "product": "USB Hub", "amount": 45.00, "days_ago": 19},
+    {"id": "O-6003", "customer_id": "C-2003", "product": "Bookshelf Speakers", "amount": 210.00, "days_ago": 17},
+    {"id": "O-6004", "customer_id": "C-2004", "product": "Laptop Stand", "amount": 52.00, "days_ago": 7},
+    {"id": "O-6005", "customer_id": "C-2005", "product": "Office Chair Mat", "amount": 75.00, "days_ago": 30},
+    {"id": "O-6006", "customer_id": "C-2006", "product": "Mechanical Mouse", "amount": 64.00, "days_ago": 5}
+  ],
+  "faults": [
+    {"order_id": "O-5001", "kind": "address_write", "times": 1, "label": "Injected fault: the address service accepts the first write, then the background job fails."},
+    {"order_id": "O-6006", "kind": "address_write", "times": 1, "label": "Injected fault (drift case)."}
+  ]
+}

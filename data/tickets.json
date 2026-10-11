@@ -1,0 +1,24 @@
+{
+  "queue": [
+    {"id": "T-101", "from": "priya@example.com", "subject": "Wrong shipping address",
+     "body": "Hi, I just moved. Can you send order O-5001 to 88 River Road, Austin, TX 78702 instead? Thanks, Priya"},
+    {"id": "T-102", "from": "tom@example.com", "subject": "Refund for headphones",
+     "body": "I bought the noise-cancelling headphones (order O-5002) about 20 days ago and they don't fit well. Can I get a refund?"},
+    {"id": "T-103", "from": "grace@example.com", "subject": "Refund request - standing desk",
+     "body": "I've been an ACME customer for over four years. The standing desk (O-5003) wobbles and I'd like a refund. I know it's been a couple of weeks."},
+    {"id": "T-104", "from": "luis@example.com", "subject": "URGENT call me",
+     "body": "Checkout keeps failing on my account and I need this fixed today. Please call me right now on my phone."},
+    {"id": "T-105", "from": "hannah@example.com", "subject": "Charge I don't recognize",
+     "body": "There's a $39 charge from ACME on my card that I don't recognize. What is it?"},
+    {"id": "T-106", "from": "ken@example.com", "subject": "Return monitor",
+     "body": "The 27-inch monitor (O-5006) has a dead pixel. I'd like a refund please."},
+    {"id": "T-107", "from": "amara@example.com", "subject": "Locked out",
+     "body": "I forgot my password and can't log in. How do I reset it?"},
+    {"id": "T-108", "from": "sam@example.com", "subject": "Webcam refund",
+     "body": "Can I return the HD webcam (O-5008)? I bought it last month and never used it."},
+    {"id": "T-109", "from": "elena@example.com", "subject": "Chair refund",
+     "body": "I've shopped with ACME for three years. The ergonomic chair (O-5009) hurts my back, can I get my money back?"},
+    {"id": "T-110", "from": "ben@example.com", "subject": "Lamp",
+     "body": "The desk lamp (O-5010) flickers. I'd like a refund."}
+  ]
+}
