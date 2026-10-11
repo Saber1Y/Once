@@ -1,0 +1,40 @@
+# Every product claim mapped to its evidence.
+claims:
+  - claim: Blocks a reply that confirms a write which never landed
+    evidence:
+      - tests/test_core.py::test_checker_catches_false_success_after_failed_write
+      - docs/evidence/live-run-2026-10-11.md (T-101, trace ee3d6f19825bf4014771ca05ce43c235)
+  - claim: Catches answers built on an outdated policy and repairs the cause
+    evidence:
+      - tests/test_core.py::test_checker_flags_stale_source_and_wrong_outcome
+      - tests/test_core.py::test_seeded_index_returns_stale_policy_until_repaired
+      - docs/evidence/live-run-2026-10-11.md (T-102, trace 83c609e8e2607cc37008a1117b4cc2e2)
+  - claim: No wrong refund is committed
+    evidence:
+      - src/once/loop.py (actions are staged; _commit runs only after checks pass)
+      - docs/evidence/live-run-2026-10-11.md (T-102 proposed $249.00, nothing committed)
+  - claim: Routes business choices to a human instead of guessing
+    evidence:
+      - tests/test_core.py::test_checker_routes_gray_zone_to_choice
+      - docs/evidence/live-run-2026-10-11.md (T-103, trace bda723cf089bef144a0da44aa972ec0d)
+  - claim: Only needs you once
+    evidence:
+      - tests/test_core.py::test_remembered_rule_covers_next_case
+      - docs/evidence/live-run-2026-10-11.md (T-109 resolved with rule P-22c203, no decision card)
+  - claim: Holds a rule that would erode ACME's chosen trade-offs
+    evidence:
+      - docs/evidence/live-run-2026-10-11.md (too-broad rule held, D2 and D5 failed)
+  - claim: Blocks phone-call promises to Starter customers
+    evidence:
+      - tests/test_core.py::test_checker_blocks_callback_promise_for_starter
+  - claim: Does not escalate routine requests
+    evidence:
+      - tests/test_core.py::test_checker_flags_routine_escalation_and_ignores_irrelevant_stale_hits
+  - claim: Every ticket is a neatlogs trace
+    evidence:
+      - src/once/loop.py (Loop.resolve is a WORKFLOW span; attempts are AGENT spans)
+      - docs/evidence/live-run-2026-10-11.md (trace ids)
+not_claimed:
+  - Real customers, orders or payments (ACME is fixture data)
+  - neatlogs trace deep links (dashboard route not documented; configurable via NEATLOGS_TRACE_URL)
+  - Trace readback through the neatlogs Public API
