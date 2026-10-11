@@ -86,6 +86,7 @@ class Desk:
     def stats(self) -> dict:
         runs = [r for e in self.tickets.values() for r in e["runs"]]
         fixes = [f for r in runs for f in r["fixes"]]
+        sources = {rule.id: rule.source_ticket for rule in self.memory.rules}
         return {
             "resolved": sum(e["status"] == "resolved" for e in self.tickets.values()),
             "waiting": sum(e["status"] == "waiting_on_you" for e in self.tickets.values()),
@@ -93,7 +94,9 @@ class Desk:
             "fixed_verified": sum(f.get("verified", False) for f in fixes),
             "asked": len(self.decisions),
             "rules": len(self.memory.active()),
-            "rule_reuses": sum(1 for r in runs if r.get("applied_rule")),
+            "rule_reuses": sum(
+                1 for r in runs if sources.get(r.get("applied_rule") or "", r["ticket_id"]) != r["ticket_id"]
+            ),
         }
 
     # -- worker --------------------------------------------------------------

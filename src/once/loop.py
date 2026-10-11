@@ -83,6 +83,9 @@ class Loop:
 
             choices = [f for f in findings if f.route == "choice"]
             if choices:
+                stale = [f for f in findings if f.code == "stale_source"]
+                if stale:  # repair the cause now so the resumed ticket doesn't hit it again
+                    self._fix_before_commit(ticket, run, stale, number)
                 run.status = "waiting_on_you"
                 run.choice = {
                     "finding": choices[0].to_dict(),
