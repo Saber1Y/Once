@@ -15,7 +15,7 @@ from typing import Any
 @dataclass
 class Step:
     id: str
-    kind: str  # "tool" | "commit" | "verify" | "llm"
+    kind: str  # "tool" | "source" | "commit" | "verify" | "llm"
     name: str
     args: dict[str, Any]
     result: Any
@@ -39,6 +39,7 @@ class Step:
 class Ledger:
     prefix: str
     steps: list[Step] = field(default_factory=list)
+    elapsed_ms: int = 0
 
     def record(self, kind: str, name: str, args: dict, fn) -> Any:
         started = time.time()
